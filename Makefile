@@ -10,6 +10,7 @@
 # 외부 라이브러리를 쓰지 않는다. Python 표준 모듈만으로 돈다.
 
 PORT ?= 8000
+PUBLIC_BASE_URL ?= http://s
 
 .PHONY: all test serve experiment compare clean
 
@@ -19,7 +20,7 @@ test:
 	@python3 -m unittest discover -s tests -v
 
 serve:
-	@python3 src/server.py --port $(PORT)
+	@PUBLIC_BASE_URL="$(PUBLIC_BASE_URL)" python3 src/server.py --port $(PORT)
 
 experiment:
 	@python3 experiments/probe_experiment.py

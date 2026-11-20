@@ -20,8 +20,11 @@ class ServerTests(unittest.TestCase):
         self.server.server_close()
         self.thread.join()
 
-    def request(self, method, path, body=None, headers=None):
-        connection = http.client.HTTPConnection("127.0.0.1", self.port)
+    def request(self, method, path, body=None, headers=None, server=None):
+        target_server = server if server is not None else self.server
+        connection = http.client.HTTPConnection(
+            "127.0.0.1", target_server.server_address[1]
+        )
         connection.request(method, path, body=body, headers=headers or {})
         response = connection.getresponse()
         content = response.read().decode("utf-8")
@@ -41,7 +44,7 @@ class ServerTests(unittest.TestCase):
             {"Content-Type": "application/x-www-form-urlencoded"},
         )
         self.assertEqual(status, 200)
-        self.assertIn("/s/0", page)
+        self.assertIn(f"http://127.0.0.1:{self.port}/0/", page)
 
     def test_redirect_and_not_found(self):
         self.request(
@@ -55,6 +58,43 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(dict(headers)["Location"], "https://example.com/path")
         status, _, _ = self.request("GET", "/s/missing")
         self.assertEqual(status, 404)
+
+    def test_root_short_code_path_redirects(self):
+        self.request(
+            "POST",
+            "/",
+            urlencode({"url": "https://example.com/root-route"}),
+            {"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        status, headers, _ = self.request("GET", "/0/")
+
+        self.assertEqual(status, 302)
+        self.assertEqual(dict(headers)["Location"], "https://example.com/root-route")
+
+    def test_public_base_url_is_used_for_shareable_links(self):
+        server = create_server(0, public_base_url="http://s")
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            status, _, page = self.request(
+                "POST",
+                "/",
+                urlencode({"url": "https://example.com/public"}),
+                {"Content-Type": "application/x-www-form-urlencoded"},
+                server=server,
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join()
+
+        self.assertEqual(status, 200)
+        self.assertIn('href="http://s/0/"', page)
+
+    def test_public_base_url_must_be_an_http_origin(self):
+        with self.assertRaises(ValueError):
+            create_server(0, public_base_url="https://s/base")
 
     def test_invalid_url_and_table_diagnostics(self):
         status, _, page = self.request(
@@ -104,7 +144,7 @@ class ServerTests(unittest.TestCase):
             self.assertIn(f"<code>{url}</code>", page)
             self.assertIn(f"<code>{code}</code>", page)
             self.assertIn(
-                f'href="http://127.0.0.1:{self.port}/s/{code}"',
+                f'href="http://127.0.0.1:{self.port}/{code}/"',
                 page,
             )
 
@@ -120,7 +160,7 @@ class ServerTests(unittest.TestCase):
             {"Content-Type": "application/x-www-form-urlencoded"},
         )
         self.assertEqual(status, 200)
-        self.assertIn("/s/0?table=linear", page)
+        self.assertIn("/0/?table=linear", page)
 
         status, _, page = self.request("GET", "/table?table=linear")
         self.assertEqual(status, 200)
@@ -128,7 +168,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn("Inspected cells=", page)
         self.assertIn("Horner:", page)
 
-        status, headers, _ = self.request("GET", "/s/0?table=linear")
+        status, headers, _ = self.request("GET", "/0/?table=linear")
         self.assertEqual(status, 302)
         self.assertEqual(dict(headers)["Location"], "https://linear.example")
 

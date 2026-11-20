@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
 from pathlib import Path
 import sys
-from urllib.parse import parse_qsl, unquote
+from urllib.parse import parse_qsl, unquote, urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,6 +38,8 @@ def _page(content: str) -> bytes:
 
 
 class URLShortenerHandler(BaseHTTPRequestHandler):
+    public_base_url: str | None = None
+
     shorteners = (
         ("chaining", URLShortener()),
         ("linear", URLShortener(table_class=LinearProbingHashTable)),
@@ -73,8 +75,16 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
             self._send_html(200, self._table_html(shortener, table_name))
             return
         if path.startswith("/s/"):
-            code = unquote(path[len("/s/") :])
-            if not code or "/" in code:
+            code = unquote(path[len("/s/") :].strip("/"))
+        else:
+            path_code = path.strip("/")
+            code = (
+                unquote(path_code)
+                if path.count("/") <= 2 and path_code and "/" not in path_code
+                else ""
+            )
+        if code:
+            if "/" in code:
                 self.send_error(404, "Short code not found")
                 return
             try:
@@ -116,7 +126,7 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
             return
 
         table_query = "?table=linear" if table_name == "linear" else ""
-        short_url = f"{self.server_url()}/s/{escape(code)}{table_query}"
+        short_url = f"{escape(self.server_url())}/{escape(code)}/{table_query}"
         self._send_html(
             200,
             "<h1>Short URL created</h1>"
@@ -154,7 +164,7 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
                     "Inspected cells" if table_name == "linear" else "Inspected bucket nodes"
                 )
                 short_link = (
-                    f"{self.server_url()}/s/{escape(code)}{table_query}"
+                    f"{escape(self.server_url())}/{escape(code)}/{table_query}"
                 )
                 nodes.append(
                     '<article class="node">'
@@ -190,8 +200,10 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
         return None
 
     def server_url(self) -> str:
+        if self.public_base_url is not None:
+            return self.public_base_url
         host = self.headers.get("Host", "localhost")
-        return f"http://{escape(host)}"
+        return f"http://{host}"
 
     def _send_html(self, status: int, content: str) -> None:
         body = _page(content)
@@ -205,10 +217,16 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
         print(f"{self.address_string()} - {format % args}")
 
 
-def create_server(port: int = 8000, shortener: URLShortener | None = None) -> ThreadingHTTPServer:
+def create_server(
+    port: int = 8000,
+    shortener: URLShortener | None = None,
+    public_base_url: str | None = None,
+) -> ThreadingHTTPServer:
+    configured_public_base_url = _normalize_public_base_url(public_base_url)
     chaining_shortener = shortener if shortener is not None else URLShortener()
 
     class ConfiguredURLShortenerHandler(URLShortenerHandler):
+        public_base_url = configured_public_base_url
         shorteners = (
             ("chaining", chaining_shortener),
             ("linear", URLShortener(table_class=LinearProbingHashTable)),
@@ -217,11 +235,43 @@ def create_server(port: int = 8000, shortener: URLShortener | None = None) -> Th
     return ThreadingHTTPServer(("", port), ConfiguredURLShortenerHandler)
 
 
+def _normalize_public_base_url(public_base_url: str | None) -> str | None:
+    if public_base_url is None:
+        return None
+    if not isinstance(public_base_url, str):
+        raise TypeError("public_base_url must be a string")
+    if not public_base_url or public_base_url != public_base_url.strip():
+        raise ValueError("public_base_url must be an HTTP(S) origin")
+    try:
+        parsed_url = urlsplit(public_base_url)
+        port = parsed_url.port
+    except ValueError as error:
+        raise ValueError("public_base_url must be an HTTP(S) origin") from error
+    if (
+        parsed_url.scheme not in ("http", "https")
+        or not parsed_url.hostname
+        or parsed_url.username is not None
+        or parsed_url.password is not None
+        or parsed_url.path not in ("", "/")
+        or parsed_url.query
+        or parsed_url.fragment
+        or (port is not None and not 1 <= port <= 65535)
+        or any(character.isspace() for character in public_base_url)
+    ):
+        raise ValueError("public_base_url must be an HTTP(S) origin")
+    return f"{parsed_url.scheme}://{parsed_url.netloc}"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the URL shortener web server.")
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8000")))
+    parser.add_argument(
+        "--public-base-url",
+        default=os.environ.get("PUBLIC_BASE_URL"),
+        help="Public origin used in generated short links (or set PUBLIC_BASE_URL).",
+    )
     args = parser.parse_args()
-    server = create_server(args.port)
+    server = create_server(args.port, public_base_url=args.public_base_url)
     print(f"Serving on http://0.0.0.0:{args.port}")
     try:
         server.serve_forever()
