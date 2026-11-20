@@ -17,12 +17,16 @@ LOAD_FACTORS = tuple(step / 4 for step in range(1, 17))
 KEY_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
-def random_keys(count: int, seed: int) -> list[str]:
+def random_keys(
+    count: int,
+    seed: int,
+    excluded: tuple[str, ...] | list[str] = (),
+) -> list[str]:
     generator = random.Random(seed)
     keys = []
     while len(keys) < count:
         key = "".join(generator.choice(KEY_ALPHABET) for _ in range(16))
-        if key not in keys:
+        if key not in keys and key not in excluded:
             keys.append(key)
     return keys
 

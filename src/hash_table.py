@@ -69,6 +69,17 @@ class HashTable:
     def hash_index(self, key: str) -> int:
         return self.hash_calculation(key)[0]
 
+    def lookup_trace(self, key: str) -> tuple[int, ...]:
+        index = self.hash_index(key)
+        inspected = []
+        node = self._buckets[index]
+        while node is not None:
+            inspected.append(index)
+            if node.key == key:
+                break
+            node = node.next
+        return tuple(inspected)
+
     def bucket_entries(self, index: int) -> tuple[tuple[str, object], ...]:
         if not isinstance(index, int) or isinstance(index, bool):
             raise TypeError("bucket index must be an integer")

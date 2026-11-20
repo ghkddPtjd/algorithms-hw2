@@ -1,0 +1,204 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 4311 >>
+stream
+BT /F1 18 Tf 1 0 0 1 45 805 Tm (Chaining vs. Linear Probing) Tj ET
+BT /F1 9 Tf 1 0 0 1 45 787 Tm (Capacity 1,000; identical seeded keys; alpha from 0.1 to 0.9) Tj ET
+BT /F1 8 Tf 1 0 0 1 45 767 Tm (Chaining: hit 1+alpha/2; miss alpha.) Tj ET
+BT /F1 8 Tf 1 0 0 1 45 753 Tm (Linear: hit 0.5\(1+1/\(1-alpha\)\); miss 0.5\(1+1/\(1-alpha\)^2\).) Tj ET
+BT /F1 8 Tf 1 0 0 1 45 737 Tm (Measured values count chain nodes or probed slots; each load uses the same keys for both tables.) Tj ET
+0.09 0.41 0.67 RG 1.2 w
+[] 0 d
+45 718 m 65 718 l S
+[] 0 d
+0 G
+BT /F1 7 Tf 1 0 0 1 69 715 Tm (Chaining measured) Tj ET
+0.09 0.41 0.67 RG 1.2 w
+[4 3] 0 d
+165 718 m 185 718 l S
+[] 0 d
+0 G
+BT /F1 7 Tf 1 0 0 1 189 715 Tm (Chaining theory) Tj ET
+0.85 0.26 0.08 RG 1.2 w
+[] 0 d
+275 718 m 295 718 l S
+[] 0 d
+0 G
+BT /F1 7 Tf 1 0 0 1 299 715 Tm (Linear measured) Tj ET
+0.85 0.26 0.08 RG 1.2 w
+[4 3] 0 d
+395 718 m 415 718 l S
+[] 0 d
+0 G
+BT /F1 7 Tf 1 0 0 1 419 715 Tm (Linear theory) Tj ET
+BT /F1 9 Tf 1 0 0 1 120 663 Tm (Successful) Tj ET
+0.75 G 0.4 w
+55 520 m 275 520 l S
+BT /F1 6 Tf 1 0 0 1 37 518 Tm (0) Tj ET
+55 545 m 275 545 l S
+BT /F1 6 Tf 1 0 0 1 37 543 Tm (1.2) Tj ET
+55 570 m 275 570 l S
+BT /F1 6 Tf 1 0 0 1 37 568 Tm (2.4) Tj ET
+55 595 m 275 595 l S
+BT /F1 6 Tf 1 0 0 1 37 593 Tm (3.6) Tj ET
+55 620 m 275 620 l S
+BT /F1 6 Tf 1 0 0 1 37 618 Tm (4.8) Tj ET
+55 645 m 275 645 l S
+BT /F1 6 Tf 1 0 0 1 37 643 Tm (6) Tj ET
+0 G 0.8 w
+55 520 m 275 520 l S
+55 520 m 55 645 l S
+0.09 0.41 0.67 RG 1.2 w
+[] 0 d
+55 541.458 m
+82.5 541.979 l
+110 543.194 l
+137.5 544.115 l
+165 544.917 l
+192.5 546.042 l
+220 546.815 l
+247.5 547.76 l
+275 548.981 l
+S
+0.09 0.41 0.67 RG 1.2 w
+[4 3] 0 d
+55 541.875 m
+82.5 542.917 l
+110 543.958 l
+137.5 545 l
+165 546.042 l
+192.5 547.083 l
+220 548.125 l
+247.5 549.167 l
+275 550.208 l
+S
+0.85 0.26 0.08 RG 1.2 w
+[] 0 d
+55 541.458 m
+82.5 542.188 l
+110 544.028 l
+137.5 546.25 l
+165 548.208 l
+192.5 553.125 l
+220 563.363 l
+247.5 578.646 l
+275 614.028 l
+S
+0.85 0.26 0.08 RG 1.2 w
+[4 3] 0 d
+55 541.991 m
+82.5 543.438 l
+110 545.298 l
+137.5 547.778 l
+165 551.25 l
+192.5 556.458 l
+220 565.139 l
+247.5 582.5 l
+275 634.583 l
+S
+[] 0 d
+0 G
+BT /F1 9 Tf 1 0 0 1 395 663 Tm (Unsuccessful) Tj ET
+0.75 G 0.4 w
+330 520 m 550 520 l S
+BT /F1 6 Tf 1 0 0 1 312 518 Tm (0) Tj ET
+330 545 m 550 545 l S
+BT /F1 6 Tf 1 0 0 1 312 543 Tm (11) Tj ET
+330 570 m 550 570 l S
+BT /F1 6 Tf 1 0 0 1 312 568 Tm (22) Tj ET
+330 595 m 550 595 l S
+BT /F1 6 Tf 1 0 0 1 312 593 Tm (33) Tj ET
+330 620 m 550 620 l S
+BT /F1 6 Tf 1 0 0 1 312 618 Tm (44) Tj ET
+330 645 m 550 645 l S
+BT /F1 6 Tf 1 0 0 1 312 643 Tm (55) Tj ET
+0 G 0.8 w
+330 520 m 550 520 l S
+330 520 m 330 645 l S
+0.09 0.41 0.67 RG 1.2 w
+[] 0 d
+330 520.212 m
+357.5 520.455 l
+385 520.687 l
+412.5 520.896 l
+440 521.096 l
+467.5 521.333 l
+495 521.591 l
+522.5 521.803 l
+550 522.025 l
+S
+0.09 0.41 0.67 RG 1.2 w
+[4 3] 0 d
+330 520.227 m
+357.5 520.455 l
+385 520.682 l
+412.5 520.909 l
+440 521.136 l
+467.5 521.364 l
+495 521.591 l
+522.5 521.818 l
+550 522.045 l
+S
+0.85 0.26 0.08 RG 1.2 w
+[] 0 d
+330 522.545 m
+357.5 522.896 l
+385 523.394 l
+412.5 524.104 l
+440 524.995 l
+467.5 527.316 l
+495 531.429 l
+522.5 543.073 l
+550 610.629 l
+S
+0.85 0.26 0.08 RG 1.2 w
+[4 3] 0 d
+330 522.539 m
+357.5 522.912 l
+385 523.455 l
+412.5 524.293 l
+440 525.682 l
+467.5 528.239 l
+495 533.763 l
+522.5 549.545 l
+550 634.773 l
+S
+[] 0 d
+0 G
+BT /F1 9 Tf 1 0 0 1 45 492 Tm (Observed averages \(node comparisons / slot probes\)) Tj ET
+BT /F1 7 Tf 1 0 0 1 55 476 Tm (alpha       Chain hit/miss       Linear hit/miss) Tj ET
+BT /F1 7 Tf 1 0 0 1 55 461 Tm (0.1          1.03 / 0.09                 1.03 / 1.12) Tj ET
+BT /F1 7 Tf 1 0 0 1 55 448 Tm (0.5          1.20 / 0.48                 1.35 / 2.20) Tj ET
+BT /F1 7 Tf 1 0 0 1 55 435 Tm (0.9          1.39 / 0.89                 4.51 / 39.88) Tj ET
+BT /F1 8 Tf 1 0 0 1 45 412 Tm (Finding: linear probing keeps data contiguous but develops primary clustering.) Tj ET
+BT /F1 8 Tf 1 0 0 1 45 398 Tm (At alpha=0.9, unsuccessful probes average 39.88 \(theory 50.50\),) Tj ET
+BT /F1 8 Tf 1 0 0 1 45 384 Tm (versus 0.89 chain-node comparisons \(theory 0.90\).) Tj ET
+BT /F1 8 Tf 1 0 0 1 45 370 Tm (Chaining cost grows gradually; linear probing is especially costly near capacity.) Tj ET
+BT /F1 8 Tf 1 0 0 1 45 356 Tm (Small theory gaps come from finite deterministic keys and nonuniform bucket occupancy.) Tj ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000311 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+4673
+%%EOF

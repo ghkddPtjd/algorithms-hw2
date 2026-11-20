@@ -74,8 +74,32 @@ class ServerTests(unittest.TestCase):
         status, _, page = self.request("GET", "/table")
         self.assertEqual(status, 200)
         self.assertIn("Horner:", page)
-        self.assertIn("compared nodes=1", page)
+        self.assertIn("count=1", page)
         self.assertIn("https://example.com", page)
+
+    def test_linear_table_can_be_selected_and_inspected(self):
+        status, _, page = self.request("GET", "/?table=linear")
+        self.assertEqual(status, 200)
+        self.assertIn('value="linear" selected', page)
+
+        status, _, page = self.request(
+            "POST",
+            "/",
+            urlencode({"url": "https://linear.example", "table": "linear"}),
+            {"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        self.assertEqual(status, 200)
+        self.assertIn("/s/0?table=linear", page)
+
+        status, _, page = self.request("GET", "/table?table=linear")
+        self.assertEqual(status, 200)
+        self.assertIn("Linear table internals", page)
+        self.assertIn("Inspected cells=", page)
+        self.assertIn("Horner:", page)
+
+        status, headers, _ = self.request("GET", "/s/0?table=linear")
+        self.assertEqual(status, 302)
+        self.assertEqual(dict(headers)["Location"], "https://linear.example")
 
 
 if __name__ == "__main__":

@@ -20,12 +20,13 @@
 | 파일 | 하는 일 |
 | --- | --- |
 | `SPEC.md` | 명세 틀. 에이전트가 초안을 쓰고 **본인이 고칩니다** |
-| `src/` · `tests/` · `experiments/` | 비어 있습니다. 수업에서 채웁니다 |
+| `src/` · `tests/` | 단축기, 체이닝/선형 탐지 테이블, 경계 테스트 |
+| `experiments/` | 적재율 비교 표·그래프와 선형 탐지 보고서 |
 | `tools/catchup.sh` | 수업 중 놓친 단계를 따라잡는 스크립트 |
-| `Makefile` | `make test` · `make serve` · `make experiment` |
+| `Makefile` | `make test` · `make serve` · `make experiment` · `make compare` |
 
-정답 코드는 들어 있지 않습니다. 에이전트는 작업 공간의 파일을 읽으므로, 정답이
-옆에 있으면 그대로 베껴 와서 연습이 되지 않습니다.
+현재 저장소에는 base62, 두 해시 테이블, 단축기와 테스트가 들어 있습니다.
+이슈와 `SPEC.md`를 기준으로 실험 결과를 재현하고 동작을 확인할 수 있습니다.
 
 ## 명령
 
@@ -35,10 +36,13 @@
 | --- | --- |
 | 테스트 | `make test` |
 | 웹 서버 (포트 8000) | `make serve` |
-| 충돌 실험 | `make experiment` |
+| 체이닝/선형 탐지 실험 | `make experiment` |
+| 두 방식 비교만 | `make compare` |
 | 놓친 단계 따라잡기 | `sh tools/catchup.sh <단계 번호>` |
 
 외부 라이브러리는 쓰지 않습니다. Python 표준 모듈만으로 충분합니다.
+실험은 CSV/Markdown 표와 SVG 그래프를 저장하고,
+선형 탐지 비교 보고서는 `experiments/linear_probing_report.pdf`로 생성합니다.
 
 ## 로컬에서 하기
 
