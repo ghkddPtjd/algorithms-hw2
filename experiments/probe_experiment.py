@@ -12,9 +12,10 @@ sys.path.insert(0, str(ROOT))
 from src.hash_table import HashTable
 
 
-CAPACITY = 128
+CAPACITY = 4093
 LOAD_FACTORS = tuple(step / 4 for step in range(1, 17))
 KEY_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+QUERY_COUNT = CAPACITY * 4
 
 
 def random_keys(
@@ -31,32 +32,42 @@ def random_keys(
     return keys
 
 
-def measure() -> list[tuple[float, int, float, float, float, float]]:
+def random_urls(count: int, seed: int, category: str) -> list[str]:
+    generator = random.Random(seed)
+    urls = []
+    for index in range(count):
+        path = "".join(generator.choice(KEY_ALPHABET) for _ in range(16))
+        urls.append(f"https://example.com/{category}/{path}/{index}")
+    return urls
+
+
+def measure() -> list[tuple[float, float, int, float, float, float, float]]:
     results = []
-    all_keys = random_keys(CAPACITY * 4, 2026)
-    unsuccessful_queries = random_keys(CAPACITY * 4, 2027)
-    for load_factor in LOAD_FACTORS:
-        entry_count = round(load_factor * CAPACITY)
+    all_urls = random_urls(CAPACITY * 4, 2026, "entry")
+    unsuccessful_queries = random_urls(QUERY_COUNT, 2027, "missing")
+    for target_load_factor in LOAD_FACTORS:
+        entry_count = round(target_load_factor * CAPACITY)
+        load_factor = entry_count / CAPACITY
         table = HashTable(initial_capacity=CAPACITY, max_load_factor=None)
-        keys = all_keys[:entry_count]
-        for index, key in enumerate(keys):
-            table.put(key, index)
+        urls = all_urls[:entry_count]
+        for index, url in enumerate(urls):
+            table.put(url, index)
 
         successful_comparisons = 0
-        for key in keys:
-            table.get(key)
+        for url in urls:
+            table.get(url)
             successful_comparisons += table.last_comparisons
 
         unsuccessful_comparisons = 0
-        query_count = max(entry_count, CAPACITY)
-        for key in unsuccessful_queries[:query_count]:
-            table.get(key)
+        for url in unsuccessful_queries:
+            table.get(url)
             unsuccessful_comparisons += table.last_comparisons
 
-        observed_success = successful_comparisons / entry_count
-        observed_failure = unsuccessful_comparisons / query_count
+        observed_success = successful_comparisons / len(urls)
+        observed_failure = unsuccessful_comparisons / len(unsuccessful_queries)
         results.append(
             (
+                target_load_factor,
                 load_factor,
                 entry_count,
                 observed_success,
@@ -68,13 +79,16 @@ def measure() -> list[tuple[float, int, float, float, float, float]]:
     return results
 
 
-def write_csv(results: list[tuple[float, int, float, float, float, float]]) -> None:
-    path = ROOT / "experiments" / "probe_results.csv"
+def write_csv(
+    results: list[tuple[float, float, int, float, float, float, float]],
+) -> None:
+    path = ROOT / "experiments" / "results.csv"
     with path.open("w", newline="", encoding="utf-8") as output:
-        writer = csv.writer(output)
+        writer = csv.writer(output, lineterminator="\n")
         writer.writerow(
             (
-                "load_factor",
+                "target_load_factor",
+                "actual_load_factor",
                 "entries",
                 "observed_success",
                 "theory_success",
@@ -83,22 +97,30 @@ def write_csv(results: list[tuple[float, int, float, float, float, float]]) -> N
             )
         )
         for row in results:
-            writer.writerow((f"{row[0]:.2f}", row[1], *(f"{value:.4f}" for value in row[2:])))
+            writer.writerow(
+                (f"{row[0]:.2f}", f"{row[1]:.4f}", row[2], *(f"{value:.4f}" for value in row[3:]))
+            )
 
 
-def write_markdown(results: list[tuple[float, int, float, float, float, float]]) -> None:
+def write_markdown(
+    results: list[tuple[float, float, int, float, float, float, float]],
+) -> None:
     lines = [
         "# Separate-chaining lookup comparisons",
         "",
-        f"Capacity: {CAPACITY}; keys and unsuccessful queries are deterministic.",
+        f"Capacity: {CAPACITY}; deterministic random URLs; "
+        f"{QUERY_COUNT} unsuccessful queries per load factor.",
         "",
-        "| Load factor | Entries | Successful: measured | Successful: theory | Failed: measured | Failed: theory |",
-        "| ---: | ---: | ---: | ---: | ---: | ---: |",
+        "Target load factors run from 0.25 to 4.00 in 0.25 steps. Entry counts "
+        "are rounded to integers, and theory uses the resulting actual load factor.",
+        "",
+        "| Target α | Actual α | Entries | Successful: measured | Successful: theory | Failed: measured | Failed: theory |",
+        "| ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
-    for load, entries, success, success_theory, failure, failure_theory in results:
+    for target, load, entries, success, success_theory, failure, failure_theory in results:
         lines.append(
-            f"| {load:.2f} | {entries} | {success:.3f} | {success_theory:.3f} "
-            f"| {failure:.3f} | {failure_theory:.3f} |"
+            f"| {target:.2f} | {load:.4f} | {entries} | {success:.3f} "
+            f"| {success_theory:.3f} | {failure:.3f} | {failure_theory:.3f} |"
         )
     lines.extend(
         (
@@ -108,21 +130,23 @@ def write_markdown(results: list[tuple[float, int, float, float, float, float]])
             "",
         )
     )
-    (ROOT / "experiments" / "probe_results.md").write_text(
+    (ROOT / "experiments" / "results.md").write_text(
         "\n".join(lines), encoding="utf-8"
     )
 
 
-def write_svg(results: list[tuple[float, int, float, float, float, float]]) -> None:
+def write_svg(
+    results: list[tuple[float, float, int, float, float, float, float]],
+) -> None:
     width, height = 900, 600
     left, right, top, bottom = 80, 850, 90, 500
     x = lambda load: left + load / 4 * (right - left)
     y = lambda comparisons: bottom - comparisons / 5 * (bottom - top)
     series = (
-        ("Successful measured", 2, "#1769aa", "circle"),
-        ("Successful theory (1 + α/2)", 3, "#1769aa", "dash"),
-        ("Unsuccessful measured", 4, "#d84315", "circle"),
-        ("Unsuccessful theory (α)", 5, "#d84315", "dash"),
+        ("Successful measured", 3, "#1769aa", "circle"),
+        ("Successful theory (1 + α/2)", 4, "#1769aa", "dash"),
+        ("Unsuccessful measured", 5, "#d84315", "circle"),
+        ("Unsuccessful theory (α)", 6, "#d84315", "dash"),
     )
     svg = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
@@ -146,19 +170,19 @@ def write_svg(results: list[tuple[float, int, float, float, float, float]]) -> N
         )
     )
     for label, column, color, style in series:
-        points = " ".join(f"{x(row[0]):.1f},{y(row[column]):.1f}" for row in results)
+        points = " ".join(f"{x(row[1]):.1f},{y(row[column]):.1f}" for row in results)
         dash = ' stroke-dasharray="7 5"' if style == "dash" else ""
         svg.append(f'<polyline points="{points}" fill="none" stroke="{color}" stroke-width="2"{dash}/>')
         if style == "circle":
             for row in results:
-                svg.append(f'<circle cx="{x(row[0]):.1f}" cy="{y(row[column]):.1f}" r="2.5" fill="{color}"/>')
+                svg.append(f'<circle cx="{x(row[1]):.1f}" cy="{y(row[column]):.1f}" r="2.5" fill="{color}"/>')
     for index, (label, _, color, style) in enumerate(series):
         legend_y = 75 + index * 22
         dash = ' stroke-dasharray="7 5"' if style == "dash" else ""
         svg.append(f'<line x1="595" y1="{legend_y}" x2="625" y2="{legend_y}" stroke="{color}" stroke-width="2"{dash}/>')
         svg.append(f'<text x="632" y="{legend_y + 4}" font-family="sans-serif" font-size="12">{label}</text>')
     svg.append("</svg>")
-    (ROOT / "experiments" / "probe_experiment.svg").write_text("\n".join(svg), encoding="utf-8")
+    (ROOT / "experiments" / "results.svg").write_text("\n".join(svg), encoding="utf-8")
 
 
 def main() -> None:
@@ -166,7 +190,7 @@ def main() -> None:
     write_csv(results)
     write_markdown(results)
     write_svg(results)
-    print("Wrote experiments/probe_results.csv, probe_results.md, and probe_experiment.svg")
+    print("Wrote experiments/results.csv, results.md, and results.svg")
 
 
 if __name__ == "__main__":
