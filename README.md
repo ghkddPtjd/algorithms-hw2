@@ -44,6 +44,21 @@
 실험은 CSV/Markdown 표와 SVG 그래프를 저장하고,
 선형 탐지 비교 보고서는 `experiments/linear_probing_report.pdf`로 생성합니다.
 
+## 외부 공유 링크
+
+`make serve`는 기본적으로 `http://s`를 링크의 기준 주소로 사용합니다.
+교수님 환경에서 `s`가 서버를 가리키면 링크가 `http://s/0/` 형태로 생성됩니다.
+로컬 주소나 다른 배포 주소를 사용하려면 다음처럼 바꿀 수 있습니다.
+
+```sh
+PUBLIC_BASE_URL=http://localhost:8000 make serve
+```
+
+HTTPS 배포라면 `PUBLIC_BASE_URL`에 `https://` 주소를 지정하세요. 이 설정은
+링크에 넣을 주소만 정하므로, `s` 같은 호스트 이름의 DNS나 프록시 연결은 배포
+환경에서 제공되어야 합니다. `make serve` 대신 Python 파일을 직접 실행하면
+`--public-base-url` 옵션이나 `PUBLIC_BASE_URL` 환경 변수를 지정할 수 있습니다.
+
 ## 로컬에서 하기
 
 ```sh
