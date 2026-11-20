@@ -3,8 +3,6 @@
 import math
 from collections.abc import Iterator
 
-from src.hash_table import HashTable
-
 
 _TOMBSTONE = object()
 
@@ -17,7 +15,7 @@ class _Entry:
         self.value = value
 
 
-class LinearProbingHashTable(HashTable):
+class LinearProbingHashTable:
     def __init__(
         self,
         initial_capacity: int = 8,
@@ -42,6 +40,38 @@ class LinearProbingHashTable(HashTable):
     @property
     def capacity(self) -> int:
         return len(self._slots)
+
+    @property
+    def load_factor(self) -> float:
+        return self._size / self.capacity
+
+    @property
+    def comparisons(self) -> int:
+        return self._comparisons
+
+    @property
+    def last_comparisons(self) -> int:
+        return self._last_comparisons
+
+    def reset_comparisons(self) -> None:
+        self._comparisons = 0
+        self._last_comparisons = 0
+
+    def hash_calculation(
+        self, key: str
+    ) -> tuple[int, tuple[tuple[str, int, int, int], ...]]:
+        self._validate_key(key)
+        value = 0
+        steps = []
+        for character in key:
+            previous = value
+            codepoint = ord(character)
+            value = (31 * value + codepoint) % self.capacity
+            steps.append((character, codepoint, previous, value))
+        return value, tuple(steps)
+
+    def hash_index(self, key: str) -> int:
+        return self.hash_calculation(key)[0]
 
     @property
     def last_probes(self) -> int:
@@ -108,6 +138,7 @@ class LinearProbingHashTable(HashTable):
         if index is None:
             return default
         entry = self._slots[index]
+        assert isinstance(entry, _Entry)
         return entry.value
 
     def contains(self, key: str) -> bool:
@@ -157,3 +188,15 @@ class LinearProbingHashTable(HashTable):
                 self.put(entry.key, entry.value)
         self._comparisons = old_comparisons
         self._last_comparisons = old_last_comparisons
+
+    def _record_comparisons(self, comparisons: int) -> None:
+        self._last_comparisons = comparisons
+        self._comparisons += comparisons
+
+    @staticmethod
+    def _validate_key(key: str) -> None:
+        if not isinstance(key, str):
+            raise TypeError("key must be a string")
+
+    def __len__(self) -> int:
+        return self._size
