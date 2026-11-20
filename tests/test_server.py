@@ -9,7 +9,8 @@ from src.shortener import URLShortener
 
 class ServerTests(unittest.TestCase):
     def setUp(self):
-        self.server = create_server(0, URLShortener())
+        self.shortener = URLShortener()
+        self.server = create_server(0, self.shortener)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.port = self.server.server_address[1]
@@ -76,6 +77,36 @@ class ServerTests(unittest.TestCase):
         self.assertIn("Horner:", page)
         self.assertIn("count=1", page)
         self.assertIn("https://example.com", page)
+
+    def test_table_shows_bucket_chains_and_expandable_horner_steps(self):
+        first_url = "https://example.com/collision/0"
+        bucket_index = self.shortener.table.hash_index(first_url)
+        colliding_url = next(
+            f"https://example.com/collision/{number}"
+            for number in range(1, 1000)
+            if self.shortener.table.hash_index(
+                f"https://example.com/collision/{number}"
+            )
+            == bucket_index
+        )
+        urls = (first_url, colliding_url)
+        codes = tuple(self.shortener.shorten(url) for url in urls)
+
+        status, _, page = self.request("GET", "/table")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(page.count('class="bucket"'), self.shortener.table.capacity)
+        self.assertIn('class="empty">Empty<', page)
+        self.assertIn(f'data-index="{bucket_index}"', page)
+        self.assertEqual(page.count('class="chain-arrow"'), 1)
+        self.assertEqual(page.count('class="horner-details"'), 2)
+        for url, code in zip(urls, codes):
+            self.assertIn(f"<code>{url}</code>", page)
+            self.assertIn(f"<code>{code}</code>", page)
+            self.assertIn(
+                f'href="http://127.0.0.1:{self.port}/s/{code}"',
+                page,
+            )
 
     def test_linear_table_can_be_selected_and_inspected(self):
         status, _, page = self.request("GET", "/?table=linear")

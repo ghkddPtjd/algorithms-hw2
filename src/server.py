@@ -20,9 +20,19 @@ def _page(content: str) -> bytes:
     document = (
         "<!doctype html><html lang=\"ko\"><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-        "<title>URL Shortener</title><body>"
+        "<title>URL Shortener</title><style>"
+        "body{font-family:sans-serif;line-height:1.5;margin:2rem auto;max-width:72rem;padding:0 1rem}"
+        "nav{margin-bottom:1.5rem}.table-grid{display:grid;gap:1rem;"
+        "grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))}"
+        ".bucket{border:1px solid #bbb;border-radius:.5rem;padding:1rem;min-width:0}"
+        ".bucket h2{margin-top:0}.chain{align-items:stretch;display:flex;gap:.75rem;"
+        "overflow-x:auto;padding:.25rem}.node{border:1px solid #ddd;border-radius:.4rem;"
+        "flex:0 0 17rem;padding:.75rem;overflow-wrap:anywhere}"
+        ".chain-arrow{align-self:center;font-size:1.5rem}.empty{color:#666;font-style:italic}"
+        ".horner-details{margin-top:.75rem}.horner-details ol{padding-left:1.5rem}"
+        "</style><body>"
         "<nav><a href=\"/\">Shorten</a> · <a href=\"/table\">Hash table</a></nav>"
-        f"{content}</body></html>"
+        f"<main>{content}</main></body></html>"
     )
     return document.encode("utf-8")
 
@@ -118,36 +128,60 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
     def _table_html(self, shortener: URLShortener, table_name: str) -> str:
         table = shortener.table
         rows = []
+        table_query = "?table=linear" if table_name == "linear" else ""
+        cell_name = "Slot" if table_name == "linear" else "Bucket"
         for index in range(table.capacity):
             entries = table.bucket_entries(index)
-            if not entries:
-                continue
-            details = []
-            for key, value in entries:
+            nodes = []
+            for node_index, (key, value) in enumerate(entries):
+                if node_index:
+                    nodes.append(
+                        '<span class="chain-arrow" aria-hidden="true">→</span>'
+                    )
                 bucket, steps = table.hash_calculation(key)
-                calculation = "h=0"
+                code = str(value)
+                step_details = []
                 for character, codepoint, previous, current in steps:
-                    calculation += f"; (31×{previous}+{codepoint}) mod {table.capacity}={current}"
+                    step_details.append(
+                        "<li>"
+                        f"<code>{escape(character)}</code> (U+{codepoint:04X}): "
+                        f"({previous} × 31 + {codepoint}) mod {table.capacity} = {current}"
+                        "</li>"
+                    )
                 trace = table.lookup_trace(key)
                 inspected = " → ".join(str(cell) for cell in trace)
                 inspection_label = (
                     "Inspected cells" if table_name == "linear" else "Inspected bucket nodes"
                 )
-                details.append(
-                    "<li>"
-                    f"key=<code>{escape(key)}</code>, code=<code>{escape(str(value))}</code>, "
-                    f"home bucket={bucket}, {inspection_label}={escape(inspected)} "
-                    f"(count={len(trace)})<br>"
-                    f"<small>Horner: {escape(calculation)}</small>"
-                    "</li>"
+                short_link = (
+                    f"{self.server_url()}/s/{escape(code)}{table_query}"
                 )
+                nodes.append(
+                    '<article class="node">'
+                    f"<p><strong>URL key</strong><br><code>{escape(key)}</code></p>"
+                    f"<p><strong>Short code</strong><br><code>{escape(code)}</code></p>"
+                    f"<p><strong>Short link</strong><br><a href=\"{short_link}\">"
+                    f"{short_link}</a></p>"
+                    f"<p>Home bucket: {bucket}; {inspection_label}="
+                    f"{escape(inspected)} (count={len(trace)})</p>"
+                    '<details class="horner-details">'
+                    "<summary>Horner: hash calculation</summary>"
+                    f"<p>Start with h = 0; final bucket: {bucket}.</p>"
+                    f"<ol>{''.join(step_details)}</ol>"
+                    "</details></article>"
+                )
+            chain_content = "".join(nodes) if nodes else '<p class="empty">Empty</p>'
             rows.append(
-                f"<section><h2>{'Slot' if table_name == 'linear' else 'Bucket'} "
-                f"{index}</h2><ol>{''.join(details)}</ol></section>"
+                f'<section class="bucket" data-index="{index}">'
+                f"<h2>{cell_name} {index}</h2>"
+                f'<div class="chain" aria-label="{cell_name} {index} chain">'
+                f"{chain_content}</div></section>"
             )
-        if not rows:
-            rows.append("<p>The table is empty.</p>")
-        return f"<h1>{escape(table_name.title())} table internals</h1>" + "".join(rows)
+        return (
+            f"<h1>{escape(table_name.title())} table internals</h1>"
+            f"<p>Capacity: {table.capacity}; entries: {len(table)}.</p>"
+            f'<div class="table-grid">{"".join(rows)}</div>'
+        )
 
     def _get_shortener(self, table_name: str) -> URLShortener | None:
         for name, shortener in self.shorteners:
