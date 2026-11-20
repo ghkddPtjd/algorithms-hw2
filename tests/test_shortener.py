@@ -19,7 +19,7 @@ class URLShortenerTests(unittest.TestCase):
     def test_same_url_reuses_code_and_distinct_url_gets_another(self):
         shortener = URLShortener()
         first_url = "https://example.com/"
-        second_url = "https://example.org/"
+        second_url = "https://example.com"
 
         first_code = shortener.shorten(first_url)
         self.assertEqual(first_code, "0")
@@ -45,6 +45,8 @@ class URLShortenerTests(unittest.TestCase):
         for url in invalid_urls:
             with self.subTest(url=url), self.assertRaises(ValueError):
                 shortener.shorten(url)
+
+        self.assertEqual(shortener.shorten("https://example.com/"), "0")
 
     def test_unregistered_code_cannot_be_expanded(self):
         with self.assertRaises(KeyError):
