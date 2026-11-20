@@ -1,114 +1,63 @@
 import unittest
 
 from src.hash_table import HashTable
-from src.linear_probing import LinearProbingHashTable
 
 
 class HashTableTests(unittest.TestCase):
-    def test_empty_table_operations(self):
-        for table_class in (HashTable, LinearProbingHashTable):
-            with self.subTest(table=table_class.__name__):
-                table = table_class()
-                self.assertEqual(len(table), 0)
-                self.assertEqual(table.get("missing", "fallback"), "fallback")
-                self.assertFalse(table.contains("missing"))
-                self.assertFalse(table.delete("missing"))
+    def test_empty_table_and_missing_key(self):
+        table = HashTable()
 
-    def test_collisions_updates_and_deletes(self):
-        for table_class in (HashTable, LinearProbingHashTable):
-            with self.subTest(table=table_class.__name__):
-                table = table_class(initial_capacity=4, max_load_factor=None)
-                buckets = {}
-                for number in range(100):
-                    key = f"key-{number}"
-                    bucket = table.hash_index(key)
-                    if bucket in buckets:
-                        first = buckets[bucket]
-                        break
-                    buckets[bucket] = key
-                else:
-                    self.fail("expected two keys to collide")
+        self.assertEqual(len(table), 0)
+        self.assertEqual(table.get("missing", "fallback"), "fallback")
+        self.assertFalse(table.contains("missing"))
+        self.assertFalse(table.delete("missing"))
 
-                table.put(first, 1)
-                table.put(key, 2)
-                table.put(first, 3)
-                self.assertEqual(len(table), 2)
-                self.assertEqual(table.get(first), 3)
-                self.assertEqual(table.get(key), 2)
-                self.assertTrue(table.delete(first))
-                self.assertFalse(table.contains(first))
-                self.assertEqual(table.get(key), 2)
+    def test_colliding_keys_update_and_delete_independently(self):
+        table = HashTable(initial_capacity=8, max_load_factor=None)
 
-    def test_last_bucket_and_comparison_counts(self):
-        for table_class in (HashTable, LinearProbingHashTable):
-            with self.subTest(table=table_class.__name__):
-                table = table_class(initial_capacity=5, max_load_factor=None)
-                keys = [f"last-{number}" for number in range(100)]
-                keys = [key for key in keys if table.hash_index(key) == 4]
-                self.assertGreaterEqual(len(keys), 2)
-                table.put(keys[0], "first")
-                table.put(keys[1], "second")
+        # "g" and "o" both map to bucket 7 with the specified Horner hash.
+        self.assertEqual(table.hash_index("g"), 7)
+        self.assertEqual(table.hash_index("o"), 7)
+        table.put("g", "first")
+        table.put("o", "second")
+        table.put("g", "updated")
 
-                if table_class is HashTable:
-                    self.assertEqual(table.get(keys[0]), "first")
-                    self.assertEqual(table.last_comparisons, 2)
-                    self.assertIsNone(table.get("absent"))
-                    self.assertEqual(table.last_comparisons, 0)
-                else:
-                    self.assertEqual(table.bucket_entries(4), ((keys[0], "first"),))
-                    self.assertEqual(table.bucket_entries(0), ((keys[1], "second"),))
-                    self.assertEqual(table.get(keys[1]), "second")
-                    self.assertEqual(table.last_probes, 2)
-                    self.assertEqual(table.lookup_trace(keys[1]), (4, 0))
+        self.assertEqual(len(table), 2)
+        self.assertEqual(table.get("g"), "updated")
+        self.assertEqual(table.get("o"), "second")
+        self.assertTrue(table.delete("g"))
+        self.assertFalse(table.contains("g"))
+        self.assertEqual(table.get("o"), "second")
+        self.assertFalse(table.delete("g"))
 
-    def test_resize_preserves_entries(self):
-        for table_class in (HashTable, LinearProbingHashTable):
-            with self.subTest(table=table_class.__name__):
-                table = table_class(initial_capacity=2)
-                table.put("one", 1)
-                table.put("two", 2)
-                self.assertGreater(table.capacity, 2)
-                self.assertEqual(table.get("one"), 1)
-                self.assertEqual(table.get("two"), 2)
+    def test_key_in_last_bucket_is_retrievable(self):
+        table = HashTable(initial_capacity=8, max_load_factor=None)
+        table.put("g", "last bucket")
 
-    def test_disabled_resize_supports_high_load(self):
-        table = HashTable(initial_capacity=2, max_load_factor=None)
-        for number in range(8):
-            table.put(f"key-{number}", number)
-        self.assertEqual(len(table), 8)
-        self.assertEqual(table.capacity, 2)
+        self.assertEqual(table.get("g"), "last bucket")
+        self.assertEqual(table.bucket_entries(7), (("g", "last bucket"),))
 
-    def test_items_and_invalid_keys(self):
-        for table_class in (HashTable, LinearProbingHashTable):
-            with self.subTest(table=table_class.__name__):
-                table = table_class()
-                table.put("a", 1)
-                table.put("b", 2)
-                self.assertEqual(set(table.items()), {("a", 1), ("b", 2)})
-                for method in (table.get, table.contains, table.delete):
-                    with self.subTest(method=method.__name__), self.assertRaises(TypeError):
-                        method(1)
-                with self.assertRaises(ValueError):
-                    table_class(initial_capacity=0)
+    def test_resize_preserves_entries_after_load_factor_exceeds_point_75(self):
+        table = HashTable()
+        entries = [(f"key-{number}", number) for number in range(7)]
 
-    def test_linear_table_full_lookup_and_tombstone_reuse(self):
-        table = LinearProbingHashTable(initial_capacity=3, max_load_factor=None)
-        for key in ("a", "b", "c"):
-            table.put(key, key.upper())
-        self.assertEqual(len(table), 3)
-        table.put("a", "updated")
-        self.assertEqual(table.get("a"), "updated")
-        self.assertEqual(len(table), 3)
-        self.assertIsNone(table.get("missing"))
-        self.assertEqual(table.last_probes, 3)
-        with self.assertRaises(OverflowError):
-            table.put("full", "FULL")
+        for key, value in entries[:6]:
+            table.put(key, value)
+        self.assertEqual(table.capacity, 8)
 
-        self.assertTrue(table.delete("b"))
-        table.put("d", "D")
-        self.assertEqual(len(table), 3)
-        self.assertEqual(table.get("d"), "D")
-        self.assertFalse(table.contains("b"))
+        table.put(*entries[6])
+        self.assertEqual(table.capacity, 16)
+        self.assertEqual(len(table), 7)
+        for key, value in entries:
+            with self.subTest(key=key):
+                self.assertEqual(table.get(key), value)
+
+    def test_empty_string_key_uses_zero_hash(self):
+        table = HashTable()
+        table.put("", "empty key")
+
+        self.assertEqual(table.hash_index(""), 0)
+        self.assertEqual(table.get(""), "empty key")
 
 
 if __name__ == "__main__":

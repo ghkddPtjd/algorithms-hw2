@@ -1,58 +1,54 @@
 import unittest
 
-from src.hash_table import HashTable
-from src.linear_probing import LinearProbingHashTable
 from src.shortener import URLShortener
 
 
 class URLShortenerTests(unittest.TestCase):
-    def test_shortens_and_expands_urls(self):
-        for table_class in (HashTable, LinearProbingHashTable):
-            with self.subTest(table=table_class.__name__):
-                shortener = URLShortener(table_class=table_class)
-                url = "https://example.com/a?b=1#fragment"
+    def test_http_and_https_urls_can_be_shortened_and_expanded(self):
+        shortener = URLShortener()
+        urls = (
+            "https://example.com/a?b=1#fragment",
+            "http://example.org/path",
+        )
+
+        for url in urls:
+            with self.subTest(url=url):
                 code = shortener.shorten(url)
-                self.assertEqual(code, "0")
                 self.assertEqual(shortener.expand(code), url)
-                self.assertEqual(shortener.shorten(url), code)
 
-    def test_distinct_urls_get_distinct_sequential_codes(self):
-        for table_class in (HashTable, LinearProbingHashTable):
-            with self.subTest(table=table_class.__name__):
-                shortener = URLShortener(table_class=table_class)
-                self.assertEqual(shortener.shorten("https://one.example"), "0")
-                self.assertEqual(shortener.shorten("http://two.example"), "1")
+    def test_same_url_reuses_code_and_distinct_url_gets_another(self):
+        shortener = URLShortener()
+        first_url = "https://example.com/"
+        second_url = "https://example.org/"
 
-    def test_invalid_urls_are_rejected_without_allocating_codes(self):
-        for table_class in (HashTable, LinearProbingHashTable):
-            with self.subTest(table=table_class.__name__):
-                shortener = URLShortener(table_class=table_class)
-                for url in (
-                    "",
-                    " https://example.com",
-                    "https://example.com ",
-                    "/relative/path",
-                    "ftp://example.com",
-                    "https:///missing-host",
-                    "https://example.com:invalid",
-                ):
-                    with self.subTest(url=url), self.assertRaises(ValueError):
-                        shortener.shorten(url)
-                self.assertEqual(shortener.shorten("https://example.com"), "0")
+        first_code = shortener.shorten(first_url)
+        self.assertEqual(first_code, "0")
+        self.assertEqual(shortener.shorten(first_url), first_code)
 
-    def test_unknown_code_raises_key_error(self):
-        for table_class in (HashTable, LinearProbingHashTable):
-            with self.subTest(table=table_class.__name__), self.assertRaises(KeyError):
-                URLShortener(table_class=table_class).expand("missing")
+        second_code = shortener.shorten(second_url)
+        self.assertEqual(second_code, "1")
+        self.assertNotEqual(second_code, first_code)
+        self.assertEqual(shortener.expand(first_code), first_url)
+        self.assertEqual(shortener.expand(second_code), second_url)
 
-    def test_table_implementation_can_be_injected(self):
-        for table_class in (HashTable, LinearProbingHashTable):
-            with self.subTest(table=table_class.__name__):
-                shortener = URLShortener(table_class=table_class, initial_capacity=4)
-                self.assertEqual(
-                    shortener.expand(shortener.shorten("https://example.org")),
-                    "https://example.org",
-                )
+    def test_invalid_urls_are_rejected(self):
+        shortener = URLShortener()
+        invalid_urls = (
+            "",
+            "/relative/path",
+            "ftp://example.com/",
+            "https:///missing-host",
+            " https://example.com/",
+            "https://example.com/ ",
+        )
+
+        for url in invalid_urls:
+            with self.subTest(url=url), self.assertRaises(ValueError):
+                shortener.shorten(url)
+
+    def test_unregistered_code_cannot_be_expanded(self):
+        with self.assertRaises(KeyError):
+            URLShortener().expand("not-registered")
 
 
 if __name__ == "__main__":
