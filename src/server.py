@@ -12,6 +12,7 @@ from urllib.parse import parse_qsl, unquote
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from src.linear_probing import LinearProbingHashTable
 from src.shortener import URLShortener
 
 
@@ -27,28 +28,47 @@ def _page(content: str) -> bytes:
 
 
 class URLShortenerHandler(BaseHTTPRequestHandler):
-    shortener = URLShortener()
+    shorteners = (
+        ("chaining", URLShortener()),
+        ("linear", URLShortener(table_class=LinearProbingHashTable)),
+    )
 
     def do_GET(self) -> None:
-        if self.path == "/":
+        path, _, query = self.path.partition("?")
+        table_name = "chaining"
+        for key, value in parse_qsl(query, keep_blank_values=True):
+            if key == "table":
+                table_name = value
+        shortener = self._get_shortener(table_name)
+        if shortener is None:
+            self.send_error(400, "Unknown table implementation")
+            return
+
+        if path == "/":
+            chaining_selected = ' selected' if table_name == "chaining" else ""
+            linear_selected = ' selected' if table_name == "linear" else ""
             self._send_html(
                 200,
                 "<h1>URL Shortener</h1>"
                 "<form method=\"post\" action=\"/\">"
                 "<label>URL <input name=\"url\" type=\"url\" required></label>"
+                "<label>Table <select name=\"table\">"
+                f'<option value="chaining"{chaining_selected}>Chaining</option>'
+                f'<option value="linear"{linear_selected}>Linear probing</option>'
+                "</select></label>"
                 "<button type=\"submit\">Shorten</button></form>",
             )
             return
-        if self.path == "/table":
-            self._send_html(200, self._table_html())
+        if path == "/table":
+            self._send_html(200, self._table_html(shortener, table_name))
             return
-        if self.path.startswith("/s/"):
-            code = unquote(self.path[len("/s/") :])
+        if path.startswith("/s/"):
+            code = unquote(path[len("/s/") :])
             if not code or "/" in code:
                 self.send_error(404, "Short code not found")
                 return
             try:
-                url = self.shortener.expand(code)
+                url = shortener.expand(code)
             except KeyError:
                 self.send_error(404, "Short code not found")
                 return
@@ -66,12 +86,18 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
         content_length = int(self.headers.get("Content-Length", "0"))
         raw_body = self.rfile.read(content_length).decode("utf-8")
         url = ""
+        table_name = "chaining"
         for key, value in parse_qsl(raw_body, keep_blank_values=True):
             if key == "url":
                 url = value
-                break
+            elif key == "table":
+                table_name = value
+        shortener = self._get_shortener(table_name)
+        if shortener is None:
+            self._send_html(400, "<h1>Unknown table implementation</h1>")
+            return
         try:
-            code = self.shortener.shorten(url)
+            code = shortener.shorten(url)
         except (TypeError, ValueError) as error:
             self._send_html(
                 400,
@@ -79,40 +105,55 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
             )
             return
 
-        short_url = f"{self.server_url()}/s/{escape(code)}"
+        table_query = "?table=linear" if table_name == "linear" else ""
+        short_url = f"{self.server_url()}/s/{escape(code)}{table_query}"
         self._send_html(
             200,
             "<h1>Short URL created</h1>"
+            f"<p>Table: {escape(table_name)}</p>"
             f"<p><a href=\"{short_url}\">{short_url}</a></p>"
             f"<p>Original: {escape(url)}</p>",
         )
 
-    def _table_html(self) -> str:
-        table = self.shortener.table
+    def _table_html(self, shortener: URLShortener, table_name: str) -> str:
+        table = shortener.table
         rows = []
         for index in range(table.capacity):
             entries = table.bucket_entries(index)
             if not entries:
                 continue
             details = []
-            for position, (key, value) in enumerate(entries, start=1):
+            for key, value in entries:
                 bucket, steps = table.hash_calculation(key)
                 calculation = "h=0"
                 for character, codepoint, previous, current in steps:
                     calculation += f"; (31×{previous}+{codepoint}) mod {table.capacity}={current}"
+                trace = table.lookup_trace(key)
+                inspected = " → ".join(str(cell) for cell in trace)
+                inspection_label = (
+                    "Inspected cells" if table_name == "linear" else "Inspected bucket nodes"
+                )
                 details.append(
                     "<li>"
                     f"key=<code>{escape(key)}</code>, code=<code>{escape(str(value))}</code>, "
-                    f"bucket={bucket}, compared nodes={position}<br>"
+                    f"home bucket={bucket}, {inspection_label}={escape(inspected)} "
+                    f"(count={len(trace)})<br>"
                     f"<small>Horner: {escape(calculation)}</small>"
                     "</li>"
                 )
             rows.append(
-                f"<section><h2>Bucket {index}</h2><ol>{''.join(details)}</ol></section>"
+                f"<section><h2>{'Slot' if table_name == 'linear' else 'Bucket'} "
+                f"{index}</h2><ol>{''.join(details)}</ol></section>"
             )
         if not rows:
             rows.append("<p>The table is empty.</p>")
-        return "<h1>Hash table internals</h1>" + "".join(rows)
+        return f"<h1>{escape(table_name.title())} table internals</h1>" + "".join(rows)
+
+    def _get_shortener(self, table_name: str) -> URLShortener | None:
+        for name, shortener in self.shorteners:
+            if name == table_name:
+                return shortener
+        return None
 
     def server_url(self) -> str:
         host = self.headers.get("Host", "localhost")
@@ -131,10 +172,16 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
 
 
 def create_server(port: int = 8000, shortener: URLShortener | None = None) -> ThreadingHTTPServer:
+    chaining_shortener = shortener if shortener is not None else URLShortener()
     handler = type(
         "ConfiguredURLShortenerHandler",
         (URLShortenerHandler,),
-        {"shortener": shortener or URLShortener()},
+        {
+            "shorteners": (
+                ("chaining", chaining_shortener),
+                ("linear", URLShortener(table_class=LinearProbingHashTable)),
+            )
+        },
     )
     return ThreadingHTTPServer(("", port), handler)
 
