@@ -173,17 +173,14 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
 
 def create_server(port: int = 8000, shortener: URLShortener | None = None) -> ThreadingHTTPServer:
     chaining_shortener = shortener if shortener is not None else URLShortener()
-    handler = type(
-        "ConfiguredURLShortenerHandler",
-        (URLShortenerHandler,),
-        {
-            "shorteners": (
-                ("chaining", chaining_shortener),
-                ("linear", URLShortener(table_class=LinearProbingHashTable)),
-            )
-        },
-    )
-    return ThreadingHTTPServer(("", port), handler)
+
+    class ConfiguredURLShortenerHandler(URLShortenerHandler):
+        shorteners = (
+            ("chaining", chaining_shortener),
+            ("linear", URLShortener(table_class=LinearProbingHashTable)),
+        )
+
+    return ThreadingHTTPServer(("", port), ConfiguredURLShortenerHandler)
 
 
 def main() -> None:
