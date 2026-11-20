@@ -22,6 +22,9 @@
 - Commit each completed step with the message format
   `Step N: 한 일 (#이슈번호)`.
 - Push the feature branch, merge it into `develop`, then push `develop`.
+- Use a local `--no-ff` merge into `develop`; open a pull request only if requested.
+- If a merge conflict occurs, resolve it on the feature branch, rerun relevant checks,
+  and push the updated feature branch before merging.
 - Close the issue only after its work is merged into `develop` and relevant checks pass.
 - Do not merge feature work directly into `main`.
 
