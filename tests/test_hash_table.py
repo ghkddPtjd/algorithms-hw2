@@ -13,7 +13,7 @@ class HashTableTests(unittest.TestCase):
         self.assertFalse(table.delete("missing"))
 
     def test_colliding_keys_update_and_delete_independently(self):
-        table = HashTable(initial_capacity=8, max_load_factor=None)
+        table = HashTable(initial_capacity=8)
 
         # "g" and "o" both map to bucket 7 with the specified Horner hash.
         self.assertEqual(table.hash_index("g"), 7)
@@ -31,11 +31,17 @@ class HashTableTests(unittest.TestCase):
         self.assertFalse(table.delete("g"))
 
     def test_key_in_last_bucket_is_retrievable(self):
-        table = HashTable(initial_capacity=8, max_load_factor=None)
+        table = HashTable(initial_capacity=8)
         table.put("g", "last bucket")
 
         self.assertEqual(table.get("g"), "last bucket")
         self.assertEqual(table.bucket_entries(7), (("g", "last bucket"),))
+
+    def test_horner_hash_uses_each_character_in_order(self):
+        table = HashTable(initial_capacity=8)
+
+        self.assertEqual(table.hash_index("ab"), 1)
+        self.assertEqual(table.hash_index("ba"), 7)
 
     def test_resize_preserves_entries_after_load_factor_exceeds_point_75(self):
         table = HashTable()
