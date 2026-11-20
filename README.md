@@ -46,6 +46,18 @@
 수 있습니다. 일반 Docker VM에서는 VM의 공개 주소와 방화벽에서 8000번 포트를
 허용해야 합니다.
 
+웹 페이지에서 URL을 입력하거나 아래 API를 호출해 단축 URL을 만들 수 있습니다.
+만들어진 단축 경로를 열면 원래 URL로 이동합니다.
+Codespaces에서는 Ports 탭에서 복사한 주소를 `BASE_URL`에 넣어 호출하세요.
+
+```sh
+curl -X POST "$BASE_URL/shorten" \
+  -H 'Content-Type: application/json' \
+  -d '{"url":"https://example.com"}'
+```
+
+URL과 코드는 현재 서버 프로세스 메모리에 저장되므로 서버를 재시작하면 초기화됩니다.
+
 ## 로컬에서 하기
 
 ```sh
