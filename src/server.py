@@ -17,7 +17,8 @@ from src.linear_probing import LinearProbingHashTable
 from src.shortener import URLShortener
 
 
-def _page(content: str) -> bytes:
+def _page(content: str, table_name: str = "chaining") -> bytes:
+    table_query = "?table=linear" if table_name == "linear" else ""
     document = (
         "<!doctype html><html lang=\"ko\"><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
@@ -32,7 +33,8 @@ def _page(content: str) -> bytes:
         ".chain-arrow{align-self:center;font-size:1.5rem}.empty{color:#666;font-style:italic}"
         ".horner-details{margin-top:.75rem}.horner-details ol{padding-left:1.5rem}"
         "</style><body>"
-        "<nav><a href=\"/\">Shorten</a> · <a href=\"/table\">Hash table</a></nav>"
+        f'<nav><a href="/{table_query}">Shorten</a> · '
+        f'<a href="/table{table_query}">Hash table</a></nav>'
         f"<main>{content}</main></body></html>"
     )
     return document.encode("utf-8")
@@ -70,10 +72,11 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
                 f'<option value="linear"{linear_selected}>Linear probing</option>'
                 "</select></label>"
                 "<button type=\"submit\">Shorten</button></form>",
+                table_name,
             )
             return
         if path == "/table":
-            self._send_html(200, self._table_html(shortener, table_name))
+            self._send_html(200, self._table_html(shortener, table_name), table_name)
             return
         if path.startswith("/s/"):
             code = unquote(path[len("/s/") :].strip("/"))
@@ -139,6 +142,7 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
             f'<p><strong>Shareable absolute link:</strong> <a href="{short_url}">'
             f"{short_url}</a></p>"
             f"<p>Original: {escape(url)}</p>",
+            table_name,
         )
 
     def _table_html(self, shortener: URLShortener, table_name: str) -> str:
@@ -211,8 +215,13 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
         host = self.headers.get("Host", "localhost")
         return f"http://{host}"
 
-    def _send_html(self, status: int, content: str) -> None:
-        body = _page(content)
+    def _send_html(
+        self,
+        status: int,
+        content: str,
+        table_name: str = "chaining",
+    ) -> None:
+        body = _page(content, table_name)
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
