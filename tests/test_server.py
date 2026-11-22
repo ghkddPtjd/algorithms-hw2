@@ -188,6 +188,7 @@ class ServerTests(unittest.TestCase):
         status, _, page = self.request("GET", "/?table=linear")
         self.assertEqual(status, 200)
         self.assertIn('value="linear" selected', page)
+        self.assertIn('href="/table?table=linear"', page)
 
         status, _, page = self.request(
             "POST",
@@ -197,6 +198,7 @@ class ServerTests(unittest.TestCase):
         )
         self.assertEqual(status, 200)
         self.assertIn("/0/?table=linear", page)
+        self.assertIn('href="/table?table=linear"', page)
 
         status, _, page = self.request("GET", "/table?table=linear")
         self.assertEqual(status, 200)
