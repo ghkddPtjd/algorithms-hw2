@@ -92,6 +92,20 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn('href="http://s/0/"', page)
 
+    def test_request_host_is_used_when_public_base_url_is_not_set(self):
+        status, _, page = self.request(
+            "POST",
+            "/",
+            urlencode({"url": "https://example.com/host-fallback"}),
+            {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Host": "localhost:8123",
+            },
+        )
+
+        self.assertEqual(status, 200)
+        self.assertIn('href="http://localhost:8123/0/"', page)
+
     def test_public_base_url_must_be_an_http_origin(self):
         with self.assertRaises(ValueError):
             create_server(0, public_base_url="https://s/base")
