@@ -208,6 +208,10 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 302)
         self.assertEqual(dict(headers)["Location"], "https://linear.example")
 
+        status, headers, _ = self.request("GET", "/s/0?table=linear")
+        self.assertEqual(status, 302)
+        self.assertEqual(dict(headers)["Location"], "https://linear.example")
+
 
 if __name__ == "__main__":
     unittest.main()
