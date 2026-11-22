@@ -3,7 +3,7 @@ import threading
 import unittest
 from urllib.parse import urlencode
 
-from src.server import create_server
+from src.server import _codespaces_public_base_url, create_server
 from src.shortener import URLShortener
 
 
@@ -105,6 +105,26 @@ class ServerTests(unittest.TestCase):
 
         self.assertEqual(status, 200)
         self.assertIn('href="http://localhost:8123/0/"', page)
+
+    def test_codespaces_public_base_url_is_derived_from_environment(self):
+        environment = {
+            "CODESPACE_NAME": "animated-space-waddle-g4g4qwj66jj73w5j4",
+            "GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN": "app.github.dev",
+        }
+
+        self.assertEqual(
+            _codespaces_public_base_url(8000, environment),
+            "https://animated-space-waddle-g4g4qwj66jj73w5j4-8000.app.github.dev",
+        )
+
+    def test_codespaces_public_base_url_requires_both_environment_values(self):
+        self.assertIsNone(_codespaces_public_base_url(8000, {}))
+        self.assertIsNone(
+            _codespaces_public_base_url(
+                8000,
+                {"CODESPACE_NAME": "test-codespace"},
+            )
+        )
 
     def test_public_base_url_must_be_an_http_origin(self):
         with self.assertRaises(ValueError):

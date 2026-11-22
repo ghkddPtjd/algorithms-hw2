@@ -1,6 +1,7 @@
 """Standard-library HTTP interface for the URL shortener."""
 
 import argparse
+from collections.abc import Mapping
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
@@ -262,6 +263,22 @@ def _normalize_public_base_url(public_base_url: str | None) -> str | None:
     return f"{parsed_url.scheme}://{parsed_url.netloc}"
 
 
+def _codespaces_public_base_url(
+    port: int,
+    environment: Mapping[str, str] | None = None,
+) -> str | None:
+    source = os.environ if environment is None else environment
+    codespace_name = source.get("CODESPACE_NAME")
+    forwarding_domain = source.get("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")
+    if not codespace_name or not forwarding_domain:
+        return None
+    if not 1 <= port <= 65535:
+        return None
+    if any(character.isspace() for character in codespace_name + forwarding_domain):
+        return None
+    return f"https://{codespace_name}-{port}.{forwarding_domain}"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the URL shortener web server.")
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8000")))
@@ -271,7 +288,11 @@ def main() -> None:
         help="Public origin used in generated short links (or set PUBLIC_BASE_URL).",
     )
     args = parser.parse_args()
-    server = create_server(args.port, public_base_url=args.public_base_url)
+    public_base_url = (
+        args.public_base_url
+        or _codespaces_public_base_url(args.port)
+    )
+    server = create_server(args.port, public_base_url=public_base_url)
     print(f"Serving on http://0.0.0.0:{args.port}")
     try:
         server.serve_forever()
