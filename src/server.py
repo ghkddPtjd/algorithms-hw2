@@ -128,11 +128,16 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
 
         table_query = "?table=linear" if table_name == "linear" else ""
         short_url = f"{escape(self.server_url())}/{escape(code)}/{table_query}"
+        short_path = f"/{escape(code)}/"
+        if table_query:
+            short_path = f"{short_path}{table_query}"
         self._send_html(
             200,
             "<h1>Short URL created</h1>"
             f"<p>Table: {escape(table_name)}</p>"
-            f"<p><a href=\"{short_url}\">{short_url}</a></p>"
+            f'<p><strong>Short link:</strong> <a href="{short_path}">{short_path}</a></p>'
+            f'<p><strong>Shareable absolute link:</strong> <a href="{short_url}">'
+            f"{short_url}</a></p>"
             f"<p>Original: {escape(url)}</p>",
         )
 

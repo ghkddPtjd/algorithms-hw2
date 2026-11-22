@@ -51,6 +51,10 @@ Codespaces에서는 포트 8000의 공개 포워딩 주소를 자동으로 링�
 일반 로컬 환경에서는 `http://localhost:8000/0/` 같은 링크가 생성됩니다.
 다른 호스트나 배포 주소를 사용하려면 다음처럼 기준 주소를 지정할 수 있습니다.
 
+결과 화면에는 현재 서버 기준의 짧은 상대 링크도 함께 표시합니다.
+예를 들어 Codespaces에서는 화면의 `Short link`를 `/0/`처럼 짧게 사용할 수 있고,
+다른 사람과 공유할 때는 `Shareable absolute link`를 사용합니다.
+
 ```sh
 PUBLIC_BASE_URL=http://localhost:8000 make serve
 ```
