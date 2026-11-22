@@ -45,6 +45,8 @@ class ServerTests(unittest.TestCase):
         )
         self.assertEqual(status, 200)
         self.assertIn(f"http://127.0.0.1:{self.port}/0/", page)
+        self.assertIn('href="/0/"', page)
+        self.assertIn("Short link", page)
 
     def test_redirect_and_not_found(self):
         self.request(
