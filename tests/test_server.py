@@ -3,6 +3,7 @@ import threading
 import unittest
 from urllib.parse import urlencode
 
+from src.linear_probing import LinearProbingHashTable
 from src.server import _codespaces_public_base_url, create_server
 from src.shortener import URLShortener
 
@@ -36,6 +37,19 @@ class ServerTests(unittest.TestCase):
         status, _, page = self.request("GET", "/")
         self.assertEqual(status, 200)
         self.assertIn('<form method="post"', page)
+        self.assertIn('href="/chaining"', page)
+        self.assertIn('href="/linear"', page)
+        self.assertIn('href="/table">Chaining hash table</a>', page)
+        self.assertIn(
+            'href="/table?table=linear">Linear probing hash table</a>', page
+        )
+
+        status, _, chaining_table = self.request("GET", "/table")
+        self.assertEqual(status, 200)
+        self.assertIn("Chaining table internals", chaining_table)
+        status, _, linear_table = self.request("GET", "/table?table=linear")
+        self.assertEqual(status, 200)
+        self.assertIn("Linear table internals", linear_table)
 
         status, _, page = self.request(
             "POST",
@@ -47,6 +61,79 @@ class ServerTests(unittest.TestCase):
         self.assertIn(f"http://127.0.0.1:{self.port}/0/", page)
         self.assertIn('href="/0/"', page)
         self.assertIn("Short link", page)
+
+    def test_table_entry_pages_keep_their_implementation_selected(self):
+        status, _, chaining_page = self.request("GET", "/chaining")
+        self.assertEqual(status, 200)
+        self.assertIn('value="chaining" selected', chaining_page)
+        self.assertIn('action="/chaining"', chaining_page)
+
+        status, _, linear_page = self.request("GET", "/linear")
+        self.assertEqual(status, 200)
+        self.assertIn('value="linear" selected', linear_page)
+        self.assertIn('action="/linear"', linear_page)
+        self.assertIn('href="/table?table=linear"', linear_page)
+
+        status, _, chaining_result = self.request(
+            "POST",
+            "/chaining",
+            urlencode({"url": "https://chaining.example/separate-page"}),
+            {"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        self.assertEqual(status, 200)
+        self.assertIn("/0/", chaining_result)
+
+        status, _, result_page = self.request(
+            "POST",
+            "/linear",
+            urlencode({"url": "https://linear.example/separate-page"}),
+            {"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        self.assertEqual(status, 200)
+        self.assertIn("/0/?table=linear", result_page)
+
+        status, headers, _ = self.request("GET", "/0/")
+        self.assertEqual(status, 302)
+        self.assertEqual(
+            dict(headers)["Location"], "https://chaining.example/separate-page"
+        )
+        status, headers, _ = self.request("GET", "/0/?table=linear")
+        self.assertEqual(status, 302)
+        self.assertEqual(
+            dict(headers)["Location"], "https://linear.example/separate-page"
+        )
+
+    def test_linear_colliding_urls_share_home_bucket_and_probe_next_slot(self):
+        probe_table = LinearProbingHashTable()
+        first_url = "https://linear.example/collision/0"
+        home_bucket = probe_table.hash_index(first_url)
+        colliding_url = next(
+            f"https://linear.example/collision/{number}"
+            for number in range(1, 1000)
+            if probe_table.hash_index(
+                f"https://linear.example/collision/{number}"
+            )
+            == home_bucket
+        )
+
+        for url in (first_url, colliding_url):
+            status, _, _ = self.request(
+                "POST",
+                "/linear",
+                urlencode({"url": url}),
+                {"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            self.assertEqual(status, 200)
+
+        status, _, page = self.request("GET", "/table?table=linear")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(page.count(f"Home bucket: {home_bucket};"), 2)
+        self.assertIn(f"Stored slot: {home_bucket}", page)
+        self.assertIn(
+            f"Stored slot: {(home_bucket + 1) % probe_table.capacity}", page
+        )
+        self.assertIn("Collision resolved by linear probing", page)
 
     def test_redirect_and_not_found(self):
         self.request(
