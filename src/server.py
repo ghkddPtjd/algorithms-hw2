@@ -17,8 +17,7 @@ from src.linear_probing import LinearProbingHashTable
 from src.shortener import URLShortener
 
 
-def _page(content: str, table_name: str = "chaining") -> bytes:
-    table_query = "?table=linear" if table_name == "linear" else ""
+def _page(content: str) -> bytes:
     document = (
         "<!doctype html><html lang=\"ko\"><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
@@ -33,8 +32,11 @@ def _page(content: str, table_name: str = "chaining") -> bytes:
         ".chain-arrow{align-self:center;font-size:1.5rem}.empty{color:#666;font-style:italic}"
         ".horner-details{margin-top:.75rem}.horner-details ol{padding-left:1.5rem}"
         "</style><body>"
-        f'<nav><a href="/{table_query}">Shorten</a> · '
-        f'<a href="/table{table_query}">Hash table</a></nav>'
+        f'<nav><a href="/">Home</a> · '
+        '<a href="/chaining">Chaining entry</a> · '
+        '<a href="/linear">Linear probing entry</a> · '
+        '<a href="/table">Chaining hash table</a> · '
+        '<a href="/table?table=linear">Linear probing hash table</a></nav>'
         f"<main>{content}</main></body></html>"
     )
     return document.encode("utf-8")
@@ -54,29 +56,33 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
         for key, value in parse_qsl(query, keep_blank_values=True):
             if key == "table":
                 table_name = value
+        if path == "/chaining":
+            table_name = "chaining"
+        elif path == "/linear":
+            table_name = "linear"
         shortener = self._get_shortener(table_name)
         if shortener is None:
             self.send_error(400, "Unknown table implementation")
             return
 
-        if path == "/":
+        if path in ("/", "/chaining", "/linear"):
             chaining_selected = ' selected' if table_name == "chaining" else ""
             linear_selected = ' selected' if table_name == "linear" else ""
+            form_action = path
             self._send_html(
                 200,
                 "<h1>URL Shortener</h1>"
-                "<form method=\"post\" action=\"/\">"
+                f'<form method="post" action="{form_action}">'
                 "<label>URL <input name=\"url\" type=\"url\" required></label>"
                 "<label>Table <select name=\"table\">"
                 f'<option value="chaining"{chaining_selected}>Chaining</option>'
                 f'<option value="linear"{linear_selected}>Linear probing</option>'
                 "</select></label>"
                 "<button type=\"submit\">Shorten</button></form>",
-                table_name,
             )
             return
         if path == "/table":
-            self._send_html(200, self._table_html(shortener, table_name), table_name)
+            self._send_html(200, self._table_html(shortener, table_name))
             return
         if path.startswith("/s/"):
             code = unquote(path[len("/s/") :].strip("/"))
@@ -104,18 +110,23 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
         self.send_error(404, "Page not found")
 
     def do_POST(self) -> None:
-        if self.path != "/":
+        path, _, query = self.path.partition("?")
+        if path not in ("/", "/chaining", "/linear"):
             self.send_error(404, "Page not found")
             return
         content_length = int(self.headers.get("Content-Length", "0"))
         raw_body = self.rfile.read(content_length).decode("utf-8")
         url = ""
-        table_name = "chaining"
+        table_name = "linear" if path == "/linear" else "chaining"
+        for key, value in parse_qsl(query, keep_blank_values=True):
+            if key == "table":
+                table_name = value
         for key, value in parse_qsl(raw_body, keep_blank_values=True):
             if key == "url":
                 url = value
             elif key == "table":
                 table_name = value
+        entry_path = f"/{table_name}" if table_name in ("chaining", "linear") else "/"
         shortener = self._get_shortener(table_name)
         if shortener is None:
             self._send_html(400, "<h1>Unknown table implementation</h1>")
@@ -125,7 +136,8 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
         except (TypeError, ValueError) as error:
             self._send_html(
                 400,
-                f"<h1>Invalid URL</h1><p>{escape(str(error))}</p><p><a href=\"/\">Try again</a></p>",
+                f"<h1>Invalid URL</h1><p>{escape(str(error))}</p>"
+                f'<p><a href="{entry_path}">Try again</a></p>',
             )
             return
 
@@ -142,7 +154,6 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
             f'<p><strong>Shareable absolute link:</strong> <a href="{short_url}">'
             f"{short_url}</a></p>"
             f"<p>Original: {escape(url)}</p>",
-            table_name,
         )
 
     def _table_html(self, shortener: URLShortener, table_name: str) -> str:
@@ -176,14 +187,17 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
                 short_link = (
                     f"{escape(self.server_url())}/{escape(code)}/{table_query}"
                 )
+                placement = f"<p>Home bucket: {bucket}; Stored slot: {index}; "
+                placement += f"{inspection_label}={escape(inspected)} (count={len(trace)})</p>"
+                if table_name == "linear" and bucket != index:
+                    placement += "<p>Collision resolved by linear probing</p>"
                 nodes.append(
                     '<article class="node">'
                     f"<p><strong>URL key</strong><br><code>{escape(key)}</code></p>"
                     f"<p><strong>Short code</strong><br><code>{escape(code)}</code></p>"
                     f"<p><strong>Short link</strong><br><a href=\"{short_link}\">"
                     f"{short_link}</a></p>"
-                    f"<p>Home bucket: {bucket}; {inspection_label}="
-                    f"{escape(inspected)} (count={len(trace)})</p>"
+                    f"{placement}"
                     '<details class="horner-details">'
                     "<summary>Horner: hash calculation</summary>"
                     f"<p>Start with h = 0; final bucket: {bucket}.</p>"
@@ -219,9 +233,8 @@ class URLShortenerHandler(BaseHTTPRequestHandler):
         self,
         status: int,
         content: str,
-        table_name: str = "chaining",
     ) -> None:
-        body = _page(content, table_name)
+        body = _page(content)
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
